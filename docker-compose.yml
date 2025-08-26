@@ -12,6 +12,7 @@ services:
     networks: [todo-net]
 
   app:
+    image: zabalini/${APP_IMAGE}:latest
     build: .
     environment:
       NODE_ENV: ${NODE_ENV}
