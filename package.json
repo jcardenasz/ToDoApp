@@ -5,7 +5,9 @@
   "license": "MIT",
   "scripts": {
     "prettify": "prettier -l --write \"**/*.js\"",
-    "test": "jest",
+    "test": "jest --runInBand",
+    "test:watch": "jest --watch",
+    "start": "node src/index.js",
     "dev": "nodemon src/index.js"
   },
   "dependencies": {
@@ -28,6 +30,7 @@
   "devDependencies": {
     "jest": "^27.2.5",
     "nodemon": "^2.0.13",
-    "prettier": "^1.18.2"
+    "prettier": "^1.18.2",
+    "supertest": "^7.1.4"
   }
 }
