@@ -24,7 +24,7 @@ services:
       MYSQL_DB: tododb
     depends_on: [db]
     expose: ["3000"]
-    ports: ["3000:3000"]
+    # ports: ["3000:3000"]
     networks: [todo-net]
 
   nginx:
