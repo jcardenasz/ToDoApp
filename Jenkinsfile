@@ -4,9 +4,10 @@ pipeline {
 
   environment {
     REGISTRY = 'docker.io'
-    IMAGE    = 'zabalini/todo-app'   // repo to push; APP_IMAGE_NAME is used on deploy
+    IMAGE    = 'zabalini/todo-app'
   }
 
+  // -------------- CI ---------------
   stages {
     stage('Checkout') {
       steps {
@@ -67,12 +68,12 @@ pipeline {
       }
     }
 
-    // --------------------- CD on your deploy VM agent ---------------------
+    // -------------- CD ------------------
     stage('Deploy on VM') {
-      when { branch 'main' }          // adjust to your policy (tags, etc.)
-      agent { label 'deploy' }        // run on the SSH node you defined in JCasC
+      when { branch 'main' }          
+      agent { label 'deploy' }       
       steps {
-        checkout scm                  // bring compose + nginx.conf to deploy node workspace
+        checkout scm           
         withCredentials([
           usernamePassword(credentialsId: 'DOCKERHUB', usernameVariable: 'DH_USER', passwordVariable: 'DH_PASS'),
           string(credentialsId: 'APP_MYSQL_USER',     variable: 'CRED_MYSQL_USER'),
@@ -84,9 +85,8 @@ pipeline {
           string(credentialsId: 'APP_IMAGE_NAME',     variable: 'CRED_APP_IMAGE')
         ]) {
           sh '''
-            set -euo pipefail
+            set -eu
 
-            # Ensure a prod override exists (port 80). Create if missing.
             if [ ! -f docker-compose.prod.yml ]; then
               cat > docker-compose.prod.yml <<'EOFPROD'
             services:
@@ -95,26 +95,22 @@ pipeline {
             EOFPROD
             fi
 
-            # Write .env for compose (idempotent; we overwrite each deploy so Jenkins is the source of truth)
             umask 077
             cat > .env <<EOF
-APP_IMAGE=${CRED_APP_IMAGE}
-NODE_ENV=${CRED_NODE_ENV}
-PORT=${CRED_PORT}
-PERSISTENCE=${CRED_PERSISTENCE}
-MYSQL_HOST=db
-MYSQL_USER=${CRED_MYSQL_USER}
-MYSQL_PASSWORD=${CRED_MYSQL_PASS}
-MYSQL_DATABASE=tododb
-MYSQL_ROOT_PASSWORD=${CRED_MYSQL_ROOT}
-EOF
+            APP_IMAGE=${CRED_APP_IMAGE}
+            NODE_ENV=${CRED_NODE_ENV}
+            PORT=${CRED_PORT}
+            PERSISTENCE=${CRED_PERSISTENCE}
+            MYSQL_HOST=db
+            MYSQL_USER=${CRED_MYSQL_USER}
+            MYSQL_PASSWORD=${CRED_MYSQL_PASS}
+            MYSQL_DATABASE=tododb
+            MYSQL_ROOT_PASSWORD=${CRED_MYSQL_ROOT}
+            EOF
             chmod 600 .env
 
-            # Login & pull latest image for the app
             echo "$DH_PASS" | docker login -u "$DH_USER" --password-stdin ${REGISTRY}
             docker compose -f docker-compose.yml -f docker-compose.prod.yml pull app || true
-
-            # Start/upgrade app+nginx (leave DB volume/data alone)
             docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --no-deps app nginx
 
             docker image prune -f || true
